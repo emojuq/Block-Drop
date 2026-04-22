@@ -1,17 +1,74 @@
-# block_drop
+# Block Drop 🧱
 
-A new Flutter project.
+Block Drop, Flutter ile geliştirilmiş, sürükleyici ve eğlenceli bir bulmaca oyunudur. Klasik blok düşürme ve eşleştirme mekaniklerini modern bir arayüz, akıcı animasyonlar ve yenilikçi özelliklerle bir araya getirerek oyunculara benzersiz bir deneyim sunar.
 
-## Getting Started
+## 🌟 Özellikler
 
-This project is a starting point for a Flutter application.
+- **Modern ve Şık Arayüz:** Göz yormayan, dinamik renk paletine sahip tasarım.
+- **Karanlık / Aydınlık Mod (Dark/Light Theme):** Çevre koşullarına veya tercihinize göre değiştirilebilir tema desteği.
+- **Güçlendiriciler (Power-ups):** Oyun içi zorlukları aşmak için kullanabileceğiniz stratejik güçlendiriciler (Karıştır, Geri Al, Çekiç vb.).
+- **Günlük Görevler:** Her gün yenilenen hedefler ile ekstra ödüller kazanma şansı.
+- **Detaylı İstatistikler ve Yüksek Skor:** Başarılarınızı anlık olarak takip edin ve kendi rekorunuzu kırın. Sürekli veri depolama (SharedPreferences) desteği sağlandı.
+- **Gelişmiş Ses Deneyimi:** Tatmin edici ses efektleri ve ses yönetimi (Audioplayers).
+- **Google AdMob Entegrasyonu:** Oyuncu deneyimini bozmayan geçiş, banner ve ödüllü reklamlarla para kazanma altyapısı.
+- **Özelleştirilmiş Açılış Ekranı:** Oyuna girerken kaliteli bir ilk izlenim (Splash Screen) ve ikon tasarımları.
 
-A few resources to get you started if this is your first Flutter project:
+## 🛠️ Kullanılan Teknolojiler ve Paketler
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+- **[Flutter](https://flutter.dev/):** Çapraz platform geliştirme altyapısı.
+- **[google_mobile_ads](https://pub.dev/packages/google_mobile_ads):** Reklam entegrasyonları için.
+- **[shared_preferences](https://pub.dev/packages/shared_preferences):** Yerel veri (istatistik, skor, tema ayarı) depolamak için.
+- **[audioplayers](https://pub.dev/packages/audioplayers):** Ses efektlerinin çalınması ve yönetilmesi için.
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## 🚀 Başlarken
+
+Projeyi yerel ortamınızda çalıştırmak ve test etmek için aşağıdaki adımları izleyebilirsiniz.
+
+### Gereksinimler
+
+- Flutter SDK (Sürüm 3.11.1 veya üzeri)
+- Dart SDK
+- Android Studio / VS Code
+- iOS / Android Emulator veya gerçek cihaz
+
+### Kurulum
+
+1. Repoyu bilgisayarınıza klonlayın veya indirin.
+   ```bash
+   git clone <repo-url>
+   ```
+2. Proje dizinine gidin.
+   ```bash
+   cd "Block Drop"
+   ```
+3. Gerekli Flutter paketlerini indirin.
+   ```bash
+   flutter pub get
+   ```
+4. Uygulamayı başlatın.
+   ```bash
+   flutter run
+   ```
+
+## 🏗️ Projenin Derlenmesi (Release)
+
+Android veya iOS için yayın (production) sürümü almak isterseniz:
+
+- **Android App Bundle (.aab) Oluşturmak:**
+  ```bash
+  flutter build appbundle
+  ```
+- **Android APK Oluşturmak:**
+  ```bash
+  flutter build apk --release
+  ```
+
+*Not: Google Play Store veya App Store'a yükleme yapmadan önce ilgili Keystore dosyalarınızın ve App ID yapılandırmalarınızın doğru ayarlandığından emin olun.*
+
+## 🤝 Katkıda Bulunma
+
+Bu proje özel veya bireysel bir çalışmadır. Farklı geliştirmeler veya iyileştirmeler için `issue` veya `pull request` açmadan önce lütfen iletişime geçin.
+
+## 📄 Lisans
+
+Bu projenin tüm hakları saklıdır. Kullanım şartları için ilgili lisans dosyasını inceleyin veya proje sahibiyle iletişime geçin.
