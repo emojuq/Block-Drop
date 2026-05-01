@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../services/mission_service.dart';
 import 'block_shape.dart';
 
-class GameState {
+class GameState extends ChangeNotifier {
   static const int rows = 8;
   static const int cols = 8;
 
@@ -22,10 +22,13 @@ class GameState {
   int blocksPlaced = 0;
   int linesClearedTotal = 0;
   int maxCombo = 0;
+  int lastScoreGained = 0;
 
   int score = 0;
   bool isGameOver = false;
   Set<Point<int>> lastClearedCells = {};
+  Set<Point<int>> lastPlacedCells = {};
+  int streakCount = 0;
 
   GameState() {
     _loadNewBlocks();
@@ -39,7 +42,7 @@ class GameState {
   }
 
   bool canPlace(BlockShape shape, int boardRow, int boardCol) {
-    if (boardRow + shape.rows > rows || boardCol + shape.cols > cols) return false;
+    if (boardRow < 0 || boardCol < 0 || boardRow + shape.rows > rows || boardCol + shape.cols > cols) return false;
     for (int r = 0; r < shape.rows; r++) {
       for (int c = 0; c < shape.cols; c++) {
         if (shape.matrix[r][c] == 1 && board[boardRow + r][boardCol + c] != null) {
@@ -68,10 +71,12 @@ class GameState {
 
     saveState();
 
+    lastPlacedCells.clear();
     for (int r = 0; r < shape.rows; r++) {
       for (int c = 0; c < shape.cols; c++) {
         if (shape.matrix[r][c] == 1) {
           board[row + r][col + c] = shape.color;
+          lastPlacedCells.add(Point(row + r, col + c));
         }
       }
     }
@@ -93,6 +98,7 @@ class GameState {
     }
 
     checkGameOver();
+    notifyListeners();
     return clearedLines;
   }
 
@@ -111,6 +117,7 @@ class GameState {
       availableBlocks[trayIndex] = temp;
     }
     checkGameOver();
+    notifyListeners();
   }
 
   int _clearCompletedLines() {
@@ -157,9 +164,34 @@ class GameState {
     }
 
     if (clearedCount > 0) {
-      int baseScore = clearedCount * 100;
-      int comboMultiplier = clearedCount >= 2 ? clearedCount : 1;
-      score += baseScore * comboMultiplier;
+      streakCount++;
+      double baseScore = clearedCount * 80.0;
+      double multiplier = 1.0;
+      int extraBonus = 0;
+
+      if (clearedCount == 2) {
+        multiplier = 1.5;
+        extraBonus = 30;
+      } else if (clearedCount == 3) {
+        multiplier = 2.0;
+        extraBonus = 80;
+      } else if (clearedCount >= 4) {
+        multiplier = 3.0;
+        extraBonus = 200;
+      }
+
+      double addedScore = (baseScore * multiplier) + extraBonus;
+
+      if (streakCount >= 8) {
+        addedScore *= 2.0;
+      } else if (streakCount >= 5) {
+        addedScore *= 1.5;
+      } else if (streakCount >= 3) {
+        addedScore *= 1.25;
+      }
+
+      lastScoreGained = addedScore.toInt();
+      score += lastScoreGained;
       
       linesClearedTotal += clearedCount;
       MissionService.updateProgress('lines', clearedCount);
@@ -172,7 +204,8 @@ class GameState {
         maxCombo = clearedCount;
       }
     } else {
-      score += 10; // placement score
+      streakCount = 0;
+      lastScoreGained = 0;
     }
 
     return clearedCount;
@@ -210,6 +243,7 @@ class GameState {
     undoUses = 0;
     hammerUses = 0;
     _loadNewBlocks();
+    notifyListeners();
   }
 
   void saveState() {
@@ -220,7 +254,8 @@ class GameState {
       ..score = score
       ..blocksPlaced = blocksPlaced
       ..linesClearedTotal = linesClearedTotal
-      ..maxCombo = maxCombo;
+      ..maxCombo = maxCombo
+      ..streakCount = streakCount;
   }
 
   bool undoLastMove() {
@@ -232,10 +267,12 @@ class GameState {
      blocksPlaced = previousState!.blocksPlaced;
      linesClearedTotal = previousState!.linesClearedTotal;
      maxCombo = previousState!.maxCombo;
+     streakCount = previousState!.streakCount;
      
      // Only allow 1 undo
      previousState = null;
      isGameOver = false;
+     notifyListeners();
      return true;
   }
 
@@ -243,6 +280,17 @@ class GameState {
      saveState();
      _loadNewBlocks();
      checkGameOver();
+     notifyListeners();
+  }
+
+  void toggleHammer() {
+    isHammerActive = !isHammerActive;
+    notifyListeners();
+  }
+
+  void clearLastClearedCells() {
+    lastClearedCells.clear();
+    notifyListeners();
   }
 
   bool useHammer(int row, int col) {
@@ -251,6 +299,7 @@ class GameState {
      board[row][col] = null;
      isHammerActive = false;
      checkGameOver();
+     notifyListeners();
      return true;
   }
 }

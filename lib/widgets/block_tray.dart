@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../models/game_state.dart';
 import 'block_piece.dart';
@@ -14,11 +15,19 @@ class BlockTray extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    double trayCellSize = boardCellSize * 0.55;
+    double trayCellSize = boardCellSize * 0.75;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 16.0),
-      child: Row(
+    return RepaintBoundary(
+      child: ClipRRect(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.05),
+              border: const Border(top: BorderSide(color: Colors.white, width: 1.0)),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 16.0),
+            child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: List.generate(3, (index) {
@@ -48,25 +57,34 @@ class BlockTray extends StatelessWidget {
           }
 
           return SizedBox(
-            width: trayCellSize * 4.5,
-            height: trayCellSize * 4.5,
+            width: trayCellSize * 4,
+            height: trayCellSize * 4,
             child: Center(
               child: Draggable<int>(
                 data: index,
                 feedback: Material(
                   color: Colors.transparent,
-                  child: feedbackPiece, 
+                  child: Opacity(
+                    opacity: 0.85,
+                    child: feedbackPiece,
+                  ),
                 ),
                 childWhenDragging: Opacity(
                   opacity: 0.3,
                   child: idlePiece,
                 ),
-                dragAnchorStrategy: pointerDragAnchorStrategy,
+                dragAnchorStrategy: (draggable, context, position) {
+                  final RenderBox renderObject = context.findRenderObject()! as RenderBox;
+                  return renderObject.globalToLocal(position);
+                },
                 child: idlePiece,
               ),
             ),
           );
         }),
+            ),
+          ),
+        ),
       ),
     );
   }

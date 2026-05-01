@@ -3,6 +3,8 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'package:confetti/confetti.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import '../models/game_state.dart';
 import '../services/storage_service.dart';
 import '../services/mission_service.dart';
@@ -31,6 +33,10 @@ class _GameScreenState extends State<GameScreen> {
   bool _showCombo = false;
   int _comboCount = 0;
   int _comboKey = 0;
+  int _lastClearedCount = 0;
+  bool _showStreakBroken = false;
+  int _streakBrokenKey = 0;
+  late ConfettiController _confettiController;
 
   BannerAd? _bannerAd;
   bool _isBannerAdLoaded = false;
@@ -44,6 +50,7 @@ class _GameScreenState extends State<GameScreen> {
   @override
   void initState() {
     super.initState();
+    _confettiController = ConfettiController(duration: const Duration(milliseconds: 800));
     _gameState = widget.gameState ?? GameState();
     _loadHighScore();
     _loadBannerAd();
@@ -132,6 +139,7 @@ class _GameScreenState extends State<GameScreen> {
 
   @override
   void dispose() {
+    _confettiController.dispose();
     _bannerAd?.dispose();
     _interstitialAd?.dispose();
     _rewardedAd?.dispose();
@@ -139,15 +147,31 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   void _onBlockPlaced(int blockIndex, int row, int col) {
+    int oldStreak = _gameState.streakCount;
     int clearedCount = _gameState.placeBlock(blockIndex, row, col);
     
     if (clearedCount != -1) {
-      setState(() {
         HapticFeedback.selectionClick();
+
+        if (clearedCount == 0 && oldStreak > 0) {
+          _showStreakBroken = true;
+          _streakBrokenKey = DateTime.now().millisecondsSinceEpoch;
+          Future.delayed(const Duration(milliseconds: 1500), () {
+            if (mounted) setState(() { _showStreakBroken = false; });
+          });
+        }
 
         if (_gameState.score > _globalHighScore) {
           _globalHighScore = _gameState.score;
           StorageService.saveHighScore(_globalHighScore);
+        }
+
+        if (clearedCount > 0) {
+          _lastClearedCount = clearedCount;
+          _confettiController.play();
+          Future.delayed(const Duration(milliseconds: 650), () {
+            if (mounted) _gameState.clearLastClearedCells();
+          });
         }
 
         if (clearedCount >= 2) {
@@ -166,7 +190,6 @@ class _GameScreenState extends State<GameScreen> {
           AudioService.playSound('game_over');
           _showGameOver();
         }
-      });
     }
   }
 
@@ -203,9 +226,7 @@ class _GameScreenState extends State<GameScreen> {
           },
           onContinue: () {
             Navigator.of(pContext).pop();
-            setState(() {
-              _gameState.continueGame(); // clear board for reward, keep score
-            });
+            _gameState.continueGame(); // clear board for reward, keep score
           },
         ),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
@@ -252,13 +273,9 @@ class _GameScreenState extends State<GameScreen> {
                     const SizedBox(width: double.infinity, height: 40),
                     Text(
                       "BLOCK DROP",
-                      style: TextStyle(
-                        color: AppTheme.textPrimary,
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 2.0,
-                      ),
-                    ),
+                      style: AppTheme.titleStyle(28, AppTheme.textPrimary),
+                    ).animate(onPlay: (c) => c.repeat(reverse: true))
+                     .shimmer(duration: 3000.ms, color: Colors.white.withValues(alpha: 0.6)),
                     Positioned(
                       right: 15,
                       child: IconButton(
@@ -269,91 +286,127 @@ class _GameScreenState extends State<GameScreen> {
                   ],
                 ),
                 const SizedBox(height: 10),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    _buildHoldBox(boardCellSize),
-                    _buildScorePanel("SKOR", _gameState.score),
-                    _buildScorePanel("EN YÜKSEK", _globalHighScore),
-                  ],
+                ListenableBuilder(
+                  listenable: _gameState,
+                  builder: (context, _) => Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      _buildHoldBox(boardCellSize),
+                      _buildScorePanel("SKOR", _gameState.score),
+                      _buildScorePanel("EN YÜKSEK", _globalHighScore),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 15),
                 _buildPowerups(),
                 const SizedBox(height: 15),
                 Expanded(
-                  child: TweenAnimationBuilder<double>(
-                    key: ValueKey('combo_$_comboKey'),
-                    tween: Tween<double>(begin: 0.0, end: _showCombo ? 1.0 : 0.0),
-                    duration: const Duration(milliseconds: 1200),
-                    curve: Curves.easeOut,
-                    child: GameBoard(
-                      gameState: _gameState,
-                      onBlockPlaced: _onBlockPlaced,
-                      onHammerTapped: (r, c) {
-                         setState(() {
-                            if (_gameState.useHammer(r, c)) {
-                               HapticFeedback.heavyImpact();
-                            }
-                         });
-                      },
-                      cellSize: boardCellSize,
-                    ),
-                    builder: (context, value, child) {
-                      // Massive Screen Shake
-                      double shakeX = _showCombo ? sin(value * pi * 40) * 10 * (1 - value) : 0;
-                      double shakeY = _showCombo ? cos(value * pi * 40) * 10 * (1 - value) : 0;
-
-                      return Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          Transform.translate(
-                            offset: Offset(shakeX, shakeY),
-                            child: child!, // GameBoard
-                          ),
-                          if (_showCombo)
-                            Transform.scale(
-                              scale: 1.0 + sin(value * pi) * 0.5,
-                              child: Transform.translate(
-                                offset: Offset(0, -100 * value),
-                                child: Opacity(
-                                  opacity: (1.0 - value).clamp(0.0, 1.0),
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
-                                    decoration: BoxDecoration(
-                                      color: Colors.amberAccent,
-                                      borderRadius: BorderRadius.circular(15),
-                                      border: Border.all(color: Colors.white, width: 3),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.deepOrangeAccent.withAlpha(200),
-                                          blurRadius: 30 * (1 - value),
-                                          spreadRadius: 10 * (1 - value),
-                                        ),
-                                      ],
-                                    ),
-                                    child: Text(
-                                      "COMBO x$_comboCount!",
-                                      style: const TextStyle(
-                                        color: Colors.black87,
-                                        fontSize: 40,
-                                        fontWeight: FontWeight.w900,
-                                        fontStyle: FontStyle.italic,
-                                        letterSpacing: 2,
-                                      ),
-                                    ),
-                                  ),
+                  child: ListenableBuilder(
+                    listenable: _gameState,
+                    builder: (context, _) => TweenAnimationBuilder<double>(
+                      key: ValueKey('combo_$_comboKey'),
+                      tween: Tween<double>(begin: 0.0, end: _showCombo ? 1.0 : 0.0),
+                      duration: const Duration(milliseconds: 1200),
+                      curve: Curves.easeOut,
+                      child: GameBoard(
+                        gameState: _gameState,
+                        onBlockPlaced: _onBlockPlaced,
+                        onHammerTapped: (r, c) {
+                           if (_gameState.useHammer(r, c)) {
+                              HapticFeedback.heavyImpact();
+                           }
+                        },
+                        cellSize: boardCellSize,
+                      ),
+                      builder: (context, value, child) {
+                        // Massive Screen Shake
+                        double shakeX = _showCombo ? sin(value * pi * 40) * 10 * (1 - value) : 0;
+                        double shakeY = _showCombo ? cos(value * pi * 40) * 10 * (1 - value) : 0;
+  
+                        return Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            if (_showCombo)
+                              Positioned.fill(
+                                child: IgnorePointer(
+                                  child: Container(color: Colors.white)
+                                    .animate(key: ValueKey('flash_$_comboKey'))
+                                    .fadeIn(duration: 60.ms)
+                                    .then()
+                                    .fadeOut(duration: 200.ms),
                                 ),
                               ),
+                            Transform.translate(
+                              offset: Offset(shakeX, shakeY),
+                              child: child!, // GameBoard
                             ),
-                        ],
-                      );
-                    },
+                            ConfettiWidget(
+                              confettiController: _confettiController,
+                              blastDirectionality: BlastDirectionality.explosive,
+                              shouldLoop: false,
+                              numberOfParticles: _lastClearedCount >= 2 ? 40 : 15,
+                              colors: const [Colors.yellow, Colors.cyan, Colors.pink, Colors.green, Colors.orange, Colors.purple],
+                              minimumSize: const Size(5, 5),
+                              maximumSize: const Size(12, 12),
+                            ),
+                            if (_showCombo)
+                              Center(
+                                child: Container(
+                                  width: 200, height: 80,
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(40),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.orange.withValues(alpha: 0.6),
+                                        blurRadius: 40,
+                                        spreadRadius: 20,
+                                      )
+                                    ],
+                                  ),
+                                ).animate().fadeIn(duration: 200.ms).fadeOut(duration: 800.ms, delay: 700.ms),
+                              ),
+                            if (_showCombo)
+                              Center(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text('COMBO', style: AppTheme.titleStyle(16, Colors.white70).copyWith(letterSpacing: 8)),
+                                    Text('×$_comboCount', style: AppTheme.scoreStyle(56,
+                                      _comboCount >= 3 ? Colors.orange : Colors.yellow
+                                    ).copyWith(shadows: [const Shadow(color: Colors.orange, blurRadius: 20)])),
+                                  ]
+                                )
+                                .animate(key: ValueKey(_comboKey))
+                                .scale(begin: const Offset(0.5, 0.5), curve: Curves.elasticOut, duration: 400.ms)
+                                .then()
+                                .moveY(end: -60, duration: 600.ms, delay: 800.ms, curve: Curves.easeIn)
+                                .fadeOut(duration: 300.ms, delay: 1000.ms),
+                              ),
+                            if (_showStreakBroken)
+                              Positioned(
+                                top: 20,
+                                child: Text(
+                                  "STREAK BİTTİ!",
+                                  style: AppTheme.titleStyle(20, Colors.redAccent),
+                                )
+                                .animate(key: ValueKey(_streakBrokenKey))
+                                .fadeIn(duration: 200.ms)
+                                .moveY(begin: 20, end: -20, duration: 800.ms, curve: Curves.easeOut)
+                                .fadeOut(duration: 400.ms, delay: 1000.ms),
+                              ),
+                          ],
+                        );
+                      },
+                    ),
                   ),
                 ),
-                BlockTray(
-                  gameState: _gameState,
-                  boardCellSize: boardCellSize,
+                ListenableBuilder(
+                  listenable: _gameState,
+                  builder: (context, _) => BlockTray(
+                    gameState: _gameState,
+                    boardCellSize: boardCellSize,
+                  ),
                 ),
                 
                 if (_isBannerAdLoaded && _bannerAd != null)
@@ -395,13 +448,11 @@ class _GameScreenState extends State<GameScreen> {
             return details.data >= 0; // Only accept pieces from the tray
           },
           onAcceptWithDetails: (details) {
-            setState(() {
-              _gameState.swapHoldBlock(details.data);
-              HapticFeedback.lightImpact();
-              if (_gameState.isGameOver) {
-                 _showGameOver();
-              }
-            });
+            _gameState.swapHoldBlock(details.data);
+            HapticFeedback.lightImpact();
+            if (_gameState.isGameOver) {
+               _showGameOver();
+            }
           },
           builder: (context, candidateData, rejectedData) {
             Widget content;
@@ -442,42 +493,67 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   Widget _buildScorePanel(String title, int value) {
-    return Column(
-      children: [
-        Text(
-          title,
-          style: TextStyle(
-            color: AppTheme.textSecondary,
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-          ),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.15),
+          width: 1,
         ),
-        const SizedBox(height: 4),
-        AnimatedSwitcher(
-          duration: const Duration(milliseconds: 300),
-          transitionBuilder: (Widget child, Animation<double> animation) {
-            return SlideTransition(
-              position: Tween<Offset>(
-                begin: const Offset(0.0, 0.5),
-                end: Offset.zero,
-              ).animate(animation),
-              child: FadeTransition(
-                opacity: animation,
-                child: child,
-              ),
-            );
-          },
-          child: Text(
-            value.toString(),
-            key: ValueKey<int>(value),
-            style: TextStyle(
-              color: AppTheme.textPrimary,
-              fontSize: 26,
-              fontWeight: FontWeight.bold,
+      ),
+      child: Column(
+        children: [
+          Text(
+            title,
+            style: AppTheme.textStyle(
+              color: AppTheme.textSecondary,
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
             ),
           ),
-        ),
-      ],
+          const SizedBox(height: 4),
+          Stack(
+            clipBehavior: Clip.none,
+            alignment: Alignment.center,
+            children: [
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 300),
+                transitionBuilder: (Widget child, Animation<double> animation) {
+                  return SlideTransition(
+                    position: Tween<Offset>(
+                      begin: const Offset(0.0, -0.5),
+                      end: Offset.zero,
+                    ).animate(animation),
+                    child: FadeTransition(
+                      opacity: animation,
+                      child: child,
+                    ),
+                  );
+                },
+                child: Text(
+                  value.toString(),
+                  key: ValueKey<int>(value),
+                  style: AppTheme.scoreStyle(26, AppTheme.textPrimary),
+                ),
+              ),
+              if (title == "SKOR" && _gameState.lastScoreGained >= 100)
+                Positioned(
+                  bottom: 25,
+                  child: Text(
+                    '+${_gameState.lastScoreGained}',
+                    style: AppTheme.scoreStyle(18, Colors.amber),
+                  )
+                  .animate(key: ValueKey(_gameState.score))
+                  .fadeIn(duration: 100.ms)
+                  .moveY(begin: 10, end: -30, duration: 600.ms, curve: Curves.easeOut)
+                  .fadeOut(duration: 300.ms, delay: 300.ms),
+                ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -610,11 +686,9 @@ class _GameScreenState extends State<GameScreen> {
 
     if (uses < 3) {
       action();
-      setState(() {
-        if (type == 'shuffle') _gameState.shuffleUses++;
-        if (type == 'undo') _gameState.undoUses++;
-        if (type == 'hammer') _gameState.hammerUses++;
-      });
+      if (type == 'shuffle') _gameState.shuffleUses++;
+      if (type == 'undo') _gameState.undoUses++;
+      if (type == 'hammer') _gameState.hammerUses++;
     } else {
       if (_isRewardedAdLoaded && _rewardedAd != null) {
         _rewardedAd!.show(onUserEarnedReward: (AdWithoutView ad, RewardItem reward) {
@@ -628,37 +702,34 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   Widget _buildPowerups() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        _buildPowerupBtn(Icons.shuffle_rounded, Colors.blue, "KARIŞTIR", () {
-          _handlePowerup('shuffle', () {
-            setState(() {
+    return ListenableBuilder(
+      listenable: _gameState,
+      builder: (context, _) => Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          _buildPowerupBtn(Icons.shuffle_rounded, Colors.blue, "KARIŞTIR", () {
+            _handlePowerup('shuffle', () {
               _gameState.shuffleBlocks();
               HapticFeedback.lightImpact();
             });
-          });
-        }),
-        const SizedBox(width: 25),
-        _buildPowerupBtn(Icons.undo_rounded, Colors.purpleAccent, "GERİ AL", () {
-          _handlePowerup('undo', () {
-            setState(() {
-               if (_gameState.undoLastMove()) {
-                  HapticFeedback.mediumImpact();
-               }
+          }),
+          const SizedBox(width: 25),
+          _buildPowerupBtn(Icons.undo_rounded, Colors.purpleAccent, "GERİ AL", () {
+            _handlePowerup('undo', () {
+              if (_gameState.undoLastMove()) {
+                 HapticFeedback.mediumImpact();
+              }
             });
-          });
-        }),
-        const SizedBox(width: 25),
-        _buildPowerupBtn(Icons.gavel_rounded, _gameState.isHammerActive ? Colors.redAccent : Colors.orangeAccent, "KIR", () {
-          _handlePowerup('hammer', () {
-            setState(() {
-               _gameState.isHammerActive = !_gameState.isHammerActive;
-               HapticFeedback.lightImpact();
+          }),
+          const SizedBox(width: 25),
+          _buildPowerupBtn(Icons.gavel_rounded, _gameState.isHammerActive ? Colors.redAccent : Colors.orangeAccent, "KIR", () {
+            _handlePowerup('hammer', () {
+              _gameState.toggleHammer();
+              HapticFeedback.lightImpact();
             });
-          });
-        }),
-      ],
+          }),
+        ],
+      ),
     );
   }
 

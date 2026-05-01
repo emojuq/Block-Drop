@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../services/storage_service.dart';
 
 class AppTheme {
@@ -26,4 +27,13 @@ class AppTheme {
   
   static Color get panelBg => isDarkMode.value ? const Color(0xFF131A29) : const Color(0xFFE2E8F0);
   static Color get dialogBg => isDarkMode.value ? const Color(0xFF131A29) : Colors.white;
+
+  static TextStyle titleStyle(double fontSize, Color color) => 
+    GoogleFonts.bungee(fontSize: fontSize, color: color, letterSpacing: 2.0);
+    
+  static TextStyle scoreStyle(double fontSize, Color color) => 
+    GoogleFonts.nunito(fontSize: fontSize, color: color, fontWeight: FontWeight.w800);
+    
+  static TextStyle textStyle({double? fontSize, Color? color, FontWeight? fontWeight, double? letterSpacing}) => 
+    GoogleFonts.nunito(fontSize: fontSize, color: color, fontWeight: fontWeight, letterSpacing: letterSpacing);
 }

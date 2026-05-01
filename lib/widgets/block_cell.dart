@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
 class BlockCell extends StatelessWidget {
   final Color color;
@@ -80,6 +81,11 @@ class BlockCell extends StatelessWidget {
       child: Container(
         decoration: decoration,
       ),
+    ).animate().scale(
+      begin: const Offset(0.7, 0.7),
+      end: const Offset(1.0, 1.0),
+      duration: 150.ms,
+      curve: Curves.elasticOut,
     );
   }
 }
