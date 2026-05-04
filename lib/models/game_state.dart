@@ -34,10 +34,57 @@ class GameState extends ChangeNotifier {
     _loadNewBlocks();
   }
 
-  void _loadNewBlocks() {
+  static const List<Color> vibrantPalette = [
+    Color(0xFFFF3B3B), // Canlı Kırmızı
+    Color(0xFF00D2FE), // Turkuaz
+    Color(0xFF00E676), // Parlak Yeşil
+    Color(0xFFFFD500), // Parlak Sarı
+    Color(0xFFB145FF), // Koyu Mor
+    Color(0xFFFF7B00), // Turuncu
+    Color(0xFFFF2C8A), // Pembe
+    Color(0xFF00E5FF), // Su Yeşili
+    Color(0xFF1DE9B6), // Çam Yeşili
+    Color(0xFF536DFE), // İndigo
+    Color(0xFFFF5252), // Mercan Kırmızısı
+    Color(0xFFE040FB), // Parlak Macenta
+    Color(0xFF76FF03), // Neon Yeşil
+    Color(0xFFFFCA28), // Kehribar
+  ];
+
+  BlockShape _getRandomWeightedShape() {
     final random = Random();
+    int roll = random.nextInt(100);
+    
+    BlockShape selectedShape;
+    
+    // Yüksek İhtimal (%60): Çubuklar ve küçük bloklar
+    if (roll < 60) {
+      final highProb = [Shapes.single, Shapes.h2, Shapes.v2, Shapes.h3, Shapes.v3, Shapes.h4, Shapes.v4];
+      selectedShape = highProb[random.nextInt(highProb.length)];
+    }
+    // Orta İhtimal (%25): Kare ve L şekilleri
+    else if (roll < 85) {
+      final medProb = [Shapes.square2x2, Shapes.lShape, Shapes.reverseLShape];
+      selectedShape = medProb[random.nextInt(medProb.length)];
+    }
+    // Düşük İhtimal (%13): T, Z, S şekilleri
+    else if (roll < 98) {
+      final lowProb = [Shapes.tShape, Shapes.zShape, Shapes.sShape];
+      selectedShape = lowProb[random.nextInt(lowProb.length)];
+    }
+    // Çok Düşük İhtimal (%2): 3x3 dev kare
+    else {
+      selectedShape = Shapes.square3x3;
+    }
+    
+    // Seçilen şekle rastgele canlı bir renk ata
+    Color randomColor = vibrantPalette[random.nextInt(vibrantPalette.length)];
+    return selectedShape.copyWithColor(randomColor);
+  }
+
+  void _loadNewBlocks() {
     for (int i = 0; i < 3; i++) {
-      availableBlocks[i] = Shapes.all[random.nextInt(Shapes.all.length)];
+      availableBlocks[i] = _getRandomWeightedShape();
     }
   }
 

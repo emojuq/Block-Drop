@@ -33,6 +33,7 @@ class _GameScreenState extends State<GameScreen> {
   bool _showCombo = false;
   int _comboCount = 0;
   int _comboKey = 0;
+  bool _isStreakCombo = false;
   int _lastClearedCount = 0;
   bool _showStreakBroken = false;
   int _streakBrokenKey = 0;
@@ -177,10 +178,15 @@ class _GameScreenState extends State<GameScreen> {
         if (clearedCount >= 2) {
           HapticFeedback.mediumImpact();
           AudioService.playSound('combo');
-          _triggerCombo(clearedCount);
+          _triggerCombo(clearedCount, isStreak: false);
         } else if (clearedCount == 1) {
           HapticFeedback.mediumImpact();
-          AudioService.playSound('clear_line');
+          if (_gameState.streakCount >= 2) {
+            AudioService.playSound('combo');
+            _triggerCombo(_gameState.streakCount, isStreak: true);
+          } else {
+            AudioService.playSound('clear_line');
+          }
         } else {
           AudioService.playSound('place_block');
         }
@@ -193,11 +199,12 @@ class _GameScreenState extends State<GameScreen> {
     }
   }
 
-  void _triggerCombo(int count) {
+  void _triggerCombo(int count, {bool isStreak = false}) {
     setState(() {
       _comboCount = count;
       _showCombo = true;
       _comboKey = DateTime.now().millisecondsSinceEpoch;
+      _isStreakCombo = isStreak;
     });
     Future.delayed(const Duration(milliseconds: 1500), () {
       if (mounted) {
@@ -371,7 +378,7 @@ class _GameScreenState extends State<GameScreen> {
                                 child: Column(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Text('COMBO', style: AppTheme.titleStyle(16, Colors.white70).copyWith(letterSpacing: 8)),
+                                    Text(_isStreakCombo ? 'STREAK' : 'COMBO', style: AppTheme.titleStyle(16, Colors.white70).copyWith(letterSpacing: 8)),
                                     Text('×$_comboCount', style: AppTheme.scoreStyle(56,
                                       _comboCount >= 3 ? Colors.orange : Colors.yellow
                                     ).copyWith(shadows: [const Shadow(color: Colors.orange, blurRadius: 20)])),

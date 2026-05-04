@@ -8,6 +8,13 @@ class BlockShape {
 
   int get rows => matrix.length;
   int get cols => matrix[0].length;
+
+  BlockShape copyWithColor(Color newColor) {
+    return BlockShape(
+      matrix: matrix,
+      color: newColor,
+    );
+  }
 }
 
 class Shapes {
